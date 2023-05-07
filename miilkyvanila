@@ -1,0 +1,1014 @@
+getgenv().walk = 16
+getgenv().jump = 50
+
+local AlwaysDay = false
+local AlwaysNight = false
+local ClearFog = false
+local defaults = {FlySpeed = 50,isFlying = false,flystate = false,}
+
+repeat wait()
+until game.Players.LocalPlayer and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:findFirstChild("Head") and game.Players.LocalPlayer.Character:findFirstChild("Humanoid")
+local Mouse = game.Players.LocalPlayer:GetMouse()
+repeat wait() until Mouse
+local HumRoot = game.Players.LocalPlayer.Character.HumanoidRootPart
+local Hum = game.Players.LocalPlayer.Character.Humanoid
+local SteerSpeed = defaults.FlySpeed or 100
+local Steer = {f = 0, b = 0, l = 0, r = 0}
+local BackSteer = {f = 0, b = 0, l = 0, r = 0}
+local MaxSpeed = 1000
+
+function Fly()
+    local Gyro = Instance.new('BodyGyro', HumRoot)
+        Gyro.P = 9e4
+        Gyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+        Gyro.CFrame = HumRoot.CFrame
+    local Velocity = Instance.new('BodyVelocity', HumRoot)
+        Velocity.Velocity = Vector3.new(0,0.1,0)
+        Velocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
+    repeat wait()
+        Hum.PlatformStand = true
+        if Steer.l + Steer.r ~= 0 or Steer.f + Steer.b ~= 0 then
+            SteerSpeed = defaults.FlySpeed
+            if SteerSpeed > MaxSpeed then
+                SteerSpeed = MaxSpeed
+            end
+        elseif not (Steer.l + Steer.r ~= 0 or Steer.f + Steer.b ~= 0) and speed ~= 0 then
+            SteerSpeed = SteerSpeed-50
+            if SteerSpeed < 0 then
+                SteerSpeed = 0    
+            end
+        end
+        if (Steer.l + Steer.r) ~= 0 or (Steer.f + Steer.b) ~= 0 then
+            Velocity.Velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (Steer.f+Steer.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(Steer.l+Steer.r,(Steer.f+Steer.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p)) * SteerSpeed
+            BackSteer = {f = Steer.f ,b = Steer.b ,l = Steer.l, r = Steer.r}
+        elseif (Steer.l + Steer.r == 0 or Steer.f + Steer.b == 0) and SteerSpeed ~= 0 then
+            Velocity.Velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (BackSteer.f+BackSteer.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(BackSteer.l+BackSteer.r,(BackSteer.f+BackSteer.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p)) * SteerSpeed
+        else
+            Velocity.Velocity = Vector3.new(0,0.1,0)
+        end
+        Gyro.CFrame = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((Steer.f+Steer.b)*50*SteerSpeed/MaxSpeed),0,0)
+    until not defaults.isFlying
+    local SteerSpeed = 0
+    local Steer = {F = 0,B = 0,L = 0,R = 0}
+    local BackSteer = {F = 0,B = 0,L = 0,R = 0}
+    Gyro:Destroy()
+    Velocity:Destroy()
+    Hum.PlatformStand = false
+end
+
+local Mouse = game.Players.LocalPlayer:GetMouse()
+
+Mouse.KeyDown:Connect(function(Key)
+    if Key:lower() == "w" then
+        isWDown = true
+        Steer.f = 1
+    elseif Key:lower() == "a" then
+        isADown = true
+        Steer.l = -1
+    elseif Key:lower() == "s" then
+        isSDown = true
+        Steer.b = -1
+    elseif Key:lower() == "d" then
+        isDDown = true
+        Steer.r = 1
+    end
+end)
+Mouse.KeyUp:Connect(function(Key)
+    if Key:lower() == "w" then
+        isWDown = false
+        Steer.f = 0
+    elseif Key:lower() == "a" then
+        isADown = false
+        Steer.l = 0
+    elseif Key:lower() == "s" then
+        isSDown = false
+        Steer.b = 0
+    elseif Key:lower() == "d" then
+        isDDown = false
+        Steer.r = 0
+    end
+end)
+
+game.Lighting.Changed:Connect(function()
+    if AlwaysDay then
+        game.Lighting.TimeOfDay = "12:00:00"
+    elseif AlwaysNight then
+        game.Lighting.TimeOfDay = "24:00:00"
+    end;
+end)
+
+game.Lighting.Changed:Connect(function()
+    if ClearFog then
+        game.Lighting.FogEnd = 999999999
+        game.Lighting.Brightness = 1
+    end
+end)
+
+--start of script--
+
+local Mercury = loadstring(game:HttpGet("https://raw.githubusercontent.com/deeeity/mercury-lib/master/src.lua"))()
+local GUI = Mercury:Create{Name = "Project Impulse",Size = UDim2.fromOffset(600, 400),Theme = Mercury.Themes.Dark,Link = "https://github.com/deeeity/mercury-lib"}
+
+---tab---
+local Tab = GUI:Tab{Name = "Character",Icon = "rbxassetid://2795572800"}
+
+Tab:Slider{Name = "WalkSpeed",Default = 16,Min = 16,Max = 500,Callback = function(value)
+    getgenv().walk = value
+end}
+
+Tab:Slider{Name = "JumpPower",Default = 50,Min = 50,Max = 500,Callback = function(value)
+    getgenv().jump = value
+end}
+
+Tab:Slider{Name = "Fly Speed",Default = 50,Min = 50,Max = 1000,Callback = function(value)
+    defaults.FlySpeed = value
+end}
+
+Tab:keybind{Name = "Fly",Callback = function()
+    if defaults.flystate == true then
+        defaults.isFlying = false
+        defaults.flystate = false
+        HumRoot.BodyGyro:Destroy()
+        HumRoot.BodyVelocity:Destroy()
+        Hum.PlatformStand = false
+    else
+        defaults.isFlying = true
+        defaults.flystate = true
+        Fly()
+    end;
+end}
+
+local NoClipConnect
+Tab:Toggle{Name = "NoClip",StartingState = false,Description = nil,Callback = function(state)
+    local NoClip = state
+    if NoClip then
+        NoClipConnect = game:GetService("RunService").Stepped:Connect(function()
+            if game.Players.LocalPlayer.Character:FindFirstChild('Torso')and game.Players.LocalPlayer.Character:findFirstChild('Head') then 
+                game.Players.LocalPlayer.Character:findFirstChild('Torso').CanCollide = false
+                game.Players.LocalPlayer.Character:findFirstChild('Head').CanCollide = false
+            end
+        end)
+    else
+        NoClipConnect:Disconnect()
+    end
+end}
+game:GetService("UserInputService").JumpRequest:connect(function()
+    if getgenv().InfiniteJumpEnabled then
+        game:GetService"Players".LocalPlayer.Character:FindFirstChildOfClass'Humanoid':ChangeState("Jumping")
+    end
+end)
+Tab:Toggle{Name = "InfJump",StartingState = false,Description = nil,Callback = function(state)
+    print("Toggled", value)
+        getgenv().InfiniteJumpEnabled = state
+end}
+
+Tab:Button{
+	Name = "Safe Death",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.Head:Remove()
+    end
+}
+
+Tab:Button{
+	Name = "Remove Accesories",
+	Description = nil,
+	Callback = function()
+        for i,v in next, game:GetService('Players').LocalPlayer.Character:GetChildren() do
+            if v:IsA('Accessory') then
+                v:Destroy()
+            end
+         end
+    end
+}
+
+Tab:Button{
+	Name = "FE BackFlip/FrontFlip [Z/X]",
+	Description = nil,
+	Callback = function()
+        --[[ Info ]]--
+
+local ver = "2.00"
+local scriptname = "feFlip"
+
+
+--[[ Keybinds ]]--
+
+local FrontflipKey = Enum.KeyCode.Z
+local BackflipKey = Enum.KeyCode.X
+local AirjumpKey = Enum.KeyCode.C
+
+
+--[[ Dependencies ]]--
+
+local ca = game:GetService("ContextActionService")
+local zeezy = game:GetService("Players").LocalPlayer
+local h = 0.0174533
+local antigrav
+
+
+--[[ Functions ]]--
+
+function zeezyFrontflip(act,inp,obj)
+	if inp == Enum.UserInputState.Begin then
+		zeezy.Character.Humanoid:ChangeState("Jumping")
+		wait()
+		zeezy.Character.Humanoid.Sit = true
+		for i = 1,360 do 
+			delay(i/720,function()
+			zeezy.Character.Humanoid.Sit = true
+				zeezy.Character.HumanoidRootPart.CFrame = zeezy.Character.HumanoidRootPart.CFrame * CFrame.Angles(-h,0,0)
+			end)
+		end
+		wait(0.55)
+		zeezy.Character.Humanoid.Sit = false
+	end
+end
+
+function zeezyBackflip(act,inp,obj)
+	if inp == Enum.UserInputState.Begin then
+		zeezy.Character.Humanoid:ChangeState("Jumping")
+		wait()
+		zeezy.Character.Humanoid.Sit = true
+		for i = 1,360 do
+			delay(i/720,function()
+			zeezy.Character.Humanoid.Sit = true
+				zeezy.Character.HumanoidRootPart.CFrame = zeezy.Character.HumanoidRootPart.CFrame * CFrame.Angles(h,0,0)
+			end)
+		end
+		wait(0.55)
+		zeezy.Character.Humanoid.Sit = false
+	end
+end
+
+function zeezyAirjump(act,inp,obj)
+	if inp == Enum.UserInputState.Begin then
+		zeezy.Character:FindFirstChildOfClass'Humanoid':ChangeState("Seated")
+		wait()
+		zeezy.Character:FindFirstChildOfClass'Humanoid':ChangeState("Jumping")	
+	end
+end
+
+
+--[[ Binds ]]--
+
+ca:BindAction("zeezyFrontflip",zeezyFrontflip,false,FrontflipKey)
+ca:BindAction("zeezyBackflip",zeezyBackflip,false,BackflipKey)
+ca:BindAction("zeezyAirjump",zeezyAirjump,false,AirjumpKey)
+    end
+}
+
+Tab:Button{
+	Name = "Anti-Afk",
+	Description = nil,
+	Callback = function()
+        local vu = game:GetService("VirtualUser")
+        game:GetService("Players").LocalPlayer.Idled:connect(function()
+        vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+        wait(1)
+        vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+        end)
+    end
+}
+
+Tab:Button{
+	Name = "BTools",
+	Description = nil,
+	Callback = function()
+        local LocalPlayer = game:GetService("Players").LocalPlayer
+        local mouse = LocalPlayer:GetMouse()
+        local movetool = Instance.new("Tool", LocalPlayer.Backpack)
+        local deletetool = Instance.new("Tool", LocalPlayer.Backpack)
+        local undotool = Instance.new("Tool", LocalPlayer.Backpack)
+        local identifytool = Instance.new("Tool", LocalPlayer.Backpack)
+        local movedetect = false
+        local movingpart = nil
+        local movetransparency = 0
+        if editedparts == nil then
+        editedparts = {}
+        parentfix = {}
+        positionfix = {}
+        end
+        deletetool.Name = "Delete"
+        undotool.Name = "Undo"
+        identifytool.Name = "Identify"
+        movetool.Name = "Move"
+        undotool.CanBeDropped = false
+        deletetool.CanBeDropped = false
+        identifytool.CanBeDropped = false
+        movetool.CanBeDropped = false
+        undotool.RequiresHandle = false
+        deletetool.RequiresHandle = false
+        identifytool.RequiresHandle = false
+        movetool.RequiresHandle = false
+        local function createnotification(title, text)
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = title;
+        Text = text;
+        Duration = 1;
+        })
+        end
+        deletetool.Activated:Connect(function()
+        createnotification("Delete Tool", "You have deleted "..mouse.Target.Name)
+        table.insert(editedparts, mouse.Target)
+        table.insert(parentfix, mouse.Target.Parent)
+        table.insert(positionfix, mouse.Target.CFrame)
+        mouse.Target.Parent = nil
+        end)
+        undotool.Activated:Connect(function()
+        createnotification("Undo Tool", "You have undone "..editedparts[#editedparts].Name)
+        editedparts[#editedparts].Parent = parentfix[#parentfix]
+        editedparts[#editedparts].CFrame = positionfix[#positionfix]
+        table.remove(positionfix, #positionfix)
+        table.remove(editedparts, #editedparts)
+        table.remove(parentfix, #parentfix)
+        end)
+        identifytool.Activated:Connect(function()
+        createnotification("Identify Tool", "Instance: "..mouse.Target.ClassName.."\nName: "..mouse.Target.Name)
+        end)
+        movetool.Activated:Connect(function()
+        createnotification("Move Tool", "You are moving: "..mouse.Target.Name)
+        movingpart = mouse.Target
+        movedetect = true
+        movingpart.CanCollide = false
+        movetransparency = movingpart.Transparency
+        movingpart.Transparency = 0.5
+        mouse.TargetFilter = movingpart
+        table.insert(editedparts, movingpart)
+        table.insert(parentfix, movingpart.Parent)
+        table.insert(positionfix, movingpart.CFrame)
+        movingpart.Transparency = movingpart.Transparency / 2
+        repeat
+        mouse.Move:Wait()
+        movingpart.CFrame = CFrame.new(mouse.Hit.p)
+        until movedetect == false
+        end)
+        movetool.Deactivated:Connect(function()
+        createnotification("Move Tool", "You have stopped moving: "..mouse.Target.Name)
+        movingpart.CanCollide = true
+        movedetect = false
+        mouse.TargetFilter = nil
+        movingpart.Transparency = movetransparenc
+        end)
+    end
+}
+
+
+
+local Tab = GUI:Tab{Name = "WorldTab",Icon = "rbxassetid://6026568213"}
+
+Tab:Toggle{Name = "AlwaysDay",StartingState = false,Description = nil,Callback = function(value)
+    AlwaysDay = value
+end}
+
+Tab:Toggle{Name = "AlwaysNight",StartingState = false,Description = nil,Callback = function(value)
+    AlwaysNight = value
+end}
+
+Tab:Toggle{Name = "ClearFog",StartingState = false,Description = nil,Callback = function(value)
+    ClearFog = value
+end}
+
+Tab:Slider{Name = "Brightness",Default = 0,Min = 0,Max = 30,Callback = function(value)
+    game.Lighting.Brightness = value
+end}
+
+Tab:Toggle{Name = "Remove Water",StartingState = false,Description = nil,Callback = function(value)
+    for i,v in next,game.Workspace.Water:GetChildren() do
+        if v.Name == "Water" then
+            if value then
+                v.Transparency = 1
+                else
+                v.Transparency = 0
+            end
+        end
+    end
+end}
+
+Tab:Toggle{Name = "Soild Water",StartingState = false,Description = nil,Callback = function(value)
+    for i,v in next,game.Workspace.Water:GetChildren() do
+        if v.Name == "Water" then
+            if value then
+                v.CanCollide = true
+                else
+                v.CanCollide = false
+            end
+        end
+    end
+end}
+
+Tab:Button{
+    Name = "Remove Snow Effect",
+    Description = nil,
+    Callback = function()
+        for i,v in next, game.Workspace:GetDescendants() do
+            if v.Name == "Particles" then
+                v:Destroy()
+            end
+        end
+    end}
+
+    local Tab = GUI:Tab{Name = "Wood",Icon = "rbxassetid://11926268243"}
+    local TPToWPorPLR = false -- go to when done
+local CheckIfWPPlaced = function()
+    if TPToWPorPLR == false then 
+        local WayPointPart = Instance.new("Part")
+        if not WayPointPart then 
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Void v4.1";
+                Text = "Please place a waypoint";
+                Duration = 1;
+            })
+            return false 
+        end 
+    else
+        return true 
+    end    
+
+    return true
+end
+local WayPointPart = nil;
+local GetWPLoc = function()
+
+    if WayPointPart then
+        if TPToWPorPLR == false then -- wp
+            return WayPointPart.CFrame
+        else
+            return GetChar().Head.CFrame
+        end
+    else
+        return GetChar().Head.CFrame
+    end    
+end  
+Tab:Button{
+    Name = "Tp Tree",
+    Description = nil,
+    Callback = function()
+        if not CheckIfWPPlaced() then return end
+        local OldCharacterPos = GetWPLoc()
+
+        for _,v in pairs(workspace.LogModels:GetChildren()) do
+            if v:IsA("Model") then
+                if v:FindFirstChild("Owner") ~= nil and v.Owner.Value == Player then
+                    BringObject(v, OldCharacterPos,{true, false})
+                end     
+            end    
+        end
+
+        GetChar():SetPrimaryPartCFrame(OldCharacterPos)
+    end}
+    Tab:Button{
+        Name = "Sell Tree",
+        Description = nil,
+        Callback = function()
+            for i,v in next,game.Workspace.LogModels:GetChildren() do
+                if v:FindFirstChild("Owner") and v.Owner.Value == game.Players.LocalPlayer then
+                    if v:FindFirstChild("TreeClass") then
+                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.WoodSection.CFrame
+                        wait(1)
+                        if v.WoodSection then
+                            repeat wait()
+                            game.ReplicatedStorage.Interaction.ClientIsDragging:FireServer(v)
+                            v.WoodSection.CFrame = CFrame.new(314.20575, -0.400000274, 85.7978668, 0.94260478, -7.16537585e-08, -0.333910495, 5.62629374e-08, 1, -5.57635822e-08, 0.333910495, 3.37762351e-08, 0.94260478)
+                            game.ReplicatedStorage.Interaction.ClientIsDragging:FireServer(v)
+                            until v.WoodSection.CFrame
+                        end
+                    end
+                end
+            end
+        end}
+local Tab = GUI:Tab{Name = "AutoBuy",Icon = "rbxassetid://11926464894"}
+
+local MyDropdown = Tab:Dropdown{
+    Name = "AutoBuy",
+    StartingText = "Select...",
+    Description = nil,
+    Items = {
+        {"UNDER DEVELOPMENT", 1}, 
+        12,	
+        {"UNDER DEVELOPMENT", ""}
+    },
+    Callback = function(item) return end
+}
+
+MyDropdown:AddItems({
+    {"UNDER DEVELOPMENT", 1},
+    12				
+})
+
+MyDropdown:RemoveItems({
+    "UNDER DEVELOPMENT", ""
+})
+
+MyDropdown:Clear()
+
+
+local Tab = GUI:Tab{Name = "Dupe",Icon = "rbxassetid://11926411146"}
+Tab:Slider{
+    Name = "Slot Number",
+    Default = 0,
+    Min = 0,
+    Max = 6,
+    Callback = function()
+    slotnumber = value
+    end
+}
+Tab:Credit{
+    Name = "Instructions for Axe Dupe",
+    Description = "Press on dupe for ur slot. [You cant have a big base for this] [Wait 5 Seconds After you Click]",
+}
+Tab:Button{
+    Name = "Dupe Axe (Slot 1)",
+    Description = nil,
+    Callback = function()
+        wait(0.2)
+        wait(5)
+            game.Players.LocalPlayer.Character.Head:Remove()
+            wait(2)
+            local args = {
+            [1] = 1,
+            [2] = game:GetService("Players").LocalPlayer
+        }
+
+        game:GetService("ReplicatedStorage").LoadSaveRequests.RequestLoad:InvokeServer(unpack(args))
+        game:GetService("ReplicatedStorage").LoadSaveRequests.GetSaving:InvokeServer()
+        wait(0.2)
+    end
+}
+
+Tab:Button{
+    Name = "Dupe Axe (Slot 2)",
+    Description = nil,
+    Callback = function()
+        wait(0.2)
+        wait(5)
+            game.Players.LocalPlayer.Character.Head:Remove()
+            wait(2)
+            local args = {
+            [1] = 2,
+            [2] = game:GetService("Players").LocalPlayer
+        }
+
+        game:GetService("ReplicatedStorage").LoadSaveRequests.RequestLoad:InvokeServer(unpack(args))
+        game:GetService("ReplicatedStorage").LoadSaveRequests.GetSaving:InvokeServer()
+        wait(0.2)
+    end
+}
+
+Tab:Button{
+    Name = "Dupe Axe (Slot 3)",
+    Description = nil,
+    Callback = function()
+        wait(0.2)
+        wait(5)
+            game.Players.LocalPlayer.Character.Head:Remove()
+            wait(2)
+            local args = {
+            [1] = 3,
+            [2] = game:GetService("Players").LocalPlayer
+        }
+
+        game:GetService("ReplicatedStorage").LoadSaveRequests.RequestLoad:InvokeServer(unpack(args))
+        game:GetService("ReplicatedStorage").LoadSaveRequests.GetSaving:InvokeServer()
+        wait(0.2)
+    end
+}
+
+Tab:Button{
+    Name = "Dupe Axe (Slot 4)",
+    Description = nil,
+    Callback = function()
+        wait(0.2)
+        wait(5)
+            game.Players.LocalPlayer.Character.Head:Remove()
+            wait(2)
+            local args = {
+            [1] = 4,
+            [2] = game:GetService("Players").LocalPlayer
+        }
+
+        game:GetService("ReplicatedStorage").LoadSaveRequests.RequestLoad:InvokeServer(unpack(args))
+        game:GetService("ReplicatedStorage").LoadSaveRequests.GetSaving:InvokeServer()
+        wait(0.2)
+    end
+}
+
+Tab:Button{
+    Name = "Dupe Axe (Slot 5)",
+    Description = nil,
+    Callback = function()
+        wait(0.2)
+        wait(5)
+            game.Players.LocalPlayer.Character.Head:Remove()
+            wait(2)
+            local args = {
+            [1] = 5,
+            [2] = game:GetService("Players").LocalPlayer
+        }
+
+        game:GetService("ReplicatedStorage").LoadSaveRequests.RequestLoad:InvokeServer(unpack(args))
+        game:GetService("ReplicatedStorage").LoadSaveRequests.GetSaving:InvokeServer()
+        wait(0.2)
+    end
+}
+
+Tab:Button{
+    Name = "Dupe Axe (Slot 6)",
+    Description = nil,
+    Callback = function()
+        wait(0.2)
+        wait(5)
+            game.Players.LocalPlayer.Character.Head:Remove()
+            wait(2)
+            local args = {
+            [1] = 6,
+            [2] = game:GetService("Players").LocalPlayer
+        }
+
+        game:GetService("ReplicatedStorage").LoadSaveRequests.RequestLoad:InvokeServer(unpack(args))
+        game:GetService("ReplicatedStorage").LoadSaveRequests.GetSaving:InvokeServer()
+        wait(0.2)
+    end
+}
+
+Tab:Button{
+    Name = "Fast Load [(OFFLINE)]",
+    Description = nil,
+    Callback = function() end
+}
+
+local Tab = GUI:Tab{Name = "Slot",Icon = "rbxassetid://11931692993"}
+
+Tab:Button{
+    Name = "Free Land",
+    Description = nil,
+    Callback = function()
+        for a,b in pairs(workspace.Properties:GetChildren()) do 
+        if b:FindFirstChild("Owner") and b:FindFirstChild("OriginSquare") and b.Owner.Value == nil then 
+            game.ReplicatedStorage.PropertyPurchasing.ClientPurchasedProperty:FireServer(b, b.OriginSquare.OriginCFrame.Value.p + Vector3.new(0,3,0))
+            wait(0.1)
+        end
+    end
+
+    for i,v in pairs(game.Workspace.Properties:GetChildren()) do
+        if v.Owner.Value == game.Players.LocalPlayer then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.OriginSquare.CFrame + Vector3.new(0,10,0)
+            end
+        end
+        end
+}
+
+
+Tab:Button{Name = "Max land",Description = nil,Callback = function()
+for i, v in pairs(game:GetService("Workspace").Properties:GetChildren()) do
+        if v:FindFirstChild("Owner") and v.Owner.Value == game.Players.LocalPlayer then
+            base = v
+            square = v.OriginSquare
+            end
+        end
+    function makebase(pos)
+        local Event = game:GetService("ReplicatedStorage").PropertyPurchasing.ClientExpandedProperty
+        Event:FireServer(base, pos)
+        end
+    local spos = square.Position
+    makebase(CFrame.new(spos.X + 40, spos.Y, spos.Z))
+    makebase(CFrame.new(spos.X - 40, spos.Y, spos.Z))
+    makebase(CFrame.new(spos.X, spos.Y, spos.Z + 40))
+    makebase(CFrame.new(spos.X, spos.Y, spos.Z - 40))
+    makebase(CFrame.new(spos.X + 40, spos.Y, spos.Z + 40))
+    makebase(CFrame.new(spos.X + 40, spos.Y, spos.Z - 40))
+    makebase(CFrame.new(spos.X - 40, spos.Y, spos.Z + 40))
+    makebase(CFrame.new(spos.X - 40, spos.Y, spos.Z - 40))
+    makebase(CFrame.new(spos.X + 80, spos.Y, spos.Z))
+    makebase(CFrame.new(spos.X - 80, spos.Y, spos.Z))
+    makebase(CFrame.new(spos.X, spos.Y, spos.Z + 80))
+    makebase(CFrame.new(spos.X, spos.Y, spos.Z - 80))
+    makebase(CFrame.new(spos.X + 80, spos.Y, spos.Z + 80))
+    makebase(CFrame.new(spos.X + 80, spos.Y, spos.Z - 80))
+    makebase(CFrame.new(spos.X - 80, spos.Y, spos.Z + 80))
+    makebase(CFrame.new(spos.X - 80, spos.Y, spos.Z - 80))
+    makebase(CFrame.new(spos.X + 40, spos.Y, spos.Z + 80))
+    makebase(CFrame.new(spos.X - 40, spos.Y, spos.Z + 80))
+    makebase(CFrame.new(spos.X + 80, spos.Y, spos.Z + 40))
+    makebase(CFrame.new(spos.X + 80, spos.Y, spos.Z - 40))
+    makebase(CFrame.new(spos.X - 80, spos.Y, spos.Z + 40))
+    makebase(CFrame.new(spos.X - 80, spos.Y, spos.Z - 40))
+    makebase(CFrame.new(spos.X + 40, spos.Y, spos.Z - 80))
+    makebase(CFrame.new(spos.X - 40, spos.Y, spos.Z - 80))
+end} 
+
+
+Tab:Button{
+	Name = "Save Slot",
+	Description = nil,
+	Callback = function()
+	    wait(0.5)
+    local args = {
+    [1] = game:GetService("Players").LocalPlayer
+}
+
+game:GetService("ReplicatedStorage").LoadSaveRequests.GetSaving:InvokeServer()
+end
+}
+
+Tab:Button{
+	Name = "Sell Sold Sign",
+	Description = nil,
+	Callback = function()
+	   for _, Sing in pairs(game.Workspace.PlayerModels:GetChildren()) do
+        if Sing.Name=="Model" and Sing:findFirstChild("Owner") then
+            if Sing.Owner.Value == game.Players.LocalPlayer then
+                for i,v in pairs(Sing:GetChildren()) do
+                    if v.Name=="Main" then
+                        spawn(function()
+                            for i=1,10 do
+                                wait()
+                                v.CFrame=CFrame.new(Vector3.new(315, -0.296, 85.791))*CFrame.Angles(math.rad(90),0,0)
+                            end
+                        end)
+                    end
+                end
+                spawn(function()
+                    for i=1,20 do
+                        wait()
+                        game.ReplicatedStorage.Interaction.ClientIsDragging:FireServer(Sing)
+                    end
+                end)
+            end
+        end
+    end  
+	    end
+}
+
+
+Tab:Button{
+	Name = "Rejoin Server",
+	Description = nil,
+	Callback = function()
+    local ts = game:GetService("TeleportService")
+    local p = game:GetService("Players").LocalPlayer
+    ts:Teleport(game.PlaceId, p)
+    end
+}
+
+local Tab = GUI:Tab{Name = "Teleports",Icon = "rbxassetid://11932735497"}
+Tab:Button{
+	Name = "CTRL Tp",
+	Description = nil,
+	Callback = function()
+local Plr = game:GetService("Players").LocalPlayer
+
+local Mouse = Plr:GetMouse()
+
+
+
+Mouse.Button1Down:connect(function()
+
+if not game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftControl) then return end
+
+if not Mouse.Target then return end
+
+Plr.Character:MoveTo(Mouse.Hit.p)
+
+end)
+end
+}
+
+Tab:Button{
+	Name = "WoodRUs",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(262.400085, 2.999295, 70.3000183, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+    end
+}
+
+Tab:Button{
+	Name = "Land Store",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(299, 3.19936991, -99.0997162, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+    end
+}
+
+Tab:Button{
+	Name = "ShackShop",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(255.350983, 8.39808846, -2553.30859, -0.965929747, 0, -0.258804798, 0, 1, 0, 0.258804798, 0, -0.965929747)
+    end
+}
+
+Tab:Button{
+	Name = "LogicStore",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(4591.79639, 7.09853077, -782.101196, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+    end
+}
+
+Tab:Button{
+	Name = "FurnitureStore",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(472.800323, 3.29852295, -1716.70081, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+    end
+}
+
+Tab:Button{
+	Name = "FineArt",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(5232.40087890625, -166.20069885253906, 742.900146484375)
+    end
+}
+
+Tab:Button{
+	Name = "Car Store",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(532.109741, 0.798913956, -1465.62976, 1, 0, 0, 0, 0, -1, 0, 1, 0)
+    end
+}
+
+Tab:Button{
+	Name = "Den",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(318.979492, 42.6506538, 1911.39709, -0.995158076, 0, -0.0982879028, 0, 1, 0, 0.0982879028, 0, -0.995158076)
+    end
+}
+
+Tab:Button{
+	Name = "Strange Man",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(1058.27893, 16.8000145, 1129.71045, -0.499959469, 0, -0.866048813, 0, 1, 0, 0.866048813, 0, -0.499959469)
+    end
+}
+
+
+Tab:Button{
+	Name = "Joel",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(3975.39966, -166.298828, 1126.30017, 0.965929627, 0, 0.258804798, 0, 1, 0, -0.258804798, 0, 0.965929627)
+    end
+}
+
+Tab:Button{
+	Name = "Slam",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(4405.40234, -166.198486, 1039.10266, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+    end
+}
+
+Tab:Button{
+	Name = "Blue Wood",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(3331.59595, -225.800171, 575.175659, -0.679684818, -4.51209701e-08, -0.733504295, -4.36131913e-08, 1, -2.11010978e-08, 0.733504295, 1.76483663e-08, -0.679684818)
+    end
+}
+
+
+
+Tab:Button{
+	Name = "Bird Cave",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(4813.1001, 17.6988564, -978.799988, 1, 8.67330598e-08, 1.7994246e-14, -8.67330598e-08, 1, 7.63659642e-08, -1.13707922e-14, -7.63659642e-08, 1)
+    end
+}
+
+
+Tab:Button{
+	Name = "Spawn",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(172, 2.99999928, 74, 1, 6.78858081e-09, 1.13391983e-15, -6.78858081e-09, 1, 1.33391048e-10, -1.13301435e-15, -1.33391048e-10, 1)
+    end
+}
+
+
+Tab:Button{
+	Name = "Tiaga Peak",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(1560, 410.318298, 3274, 1, 6.21132656e-08, 2.1724161e-15, -6.21132656e-08, 1, 1.22066512e-09, -2.09659649e-15, -1.22066512e-09, 1)
+    end
+}
+
+
+Tab:Button{
+	Name = "Palm Island",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(2549, -5.89998198, -42, 1, -5.93089986e-08, 1.52408745e-15, 5.93089986e-08, 1, -1.16563648e-09, -1.45495474e-15, 1.16563648e-09, 1)
+    end
+}
+
+Tab:Button{
+	Name = "Green Box",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-1676.75061, 349.601837, 1477.72046, 0.210177779, 8.57348397e-08, -0.977663159, -7.71978321e-08, 1, 7.10976664e-08, 0.977663159, 6.05303256e-08, 0.210177779)
+    end
+}
+
+Tab:Button{
+	Name = "Cherry Meadow",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(224.766678, 59.8000755, 1294.86609, 0.807783246, -8.06143374e-10, 0.589479625, 8.14816936e-10, 1, 2.50980514e-10, -0.589479625, 2.77580098e-10, 0.807783246)
+    end
+}
+
+Tab:Button{
+	Name = "Snow Glow",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new()
+    end
+}
+
+Tab:Button{
+	Name = "Volcano",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-1601.22449, 622.999878, 1092.21216, 0.819398761, 3.23995764e-08, 0.573223948, -3.53097462e-08, 1, -6.04792394e-09, -0.573223948, -1.52847299e-08, 0.819398761)
+    end
+}
+
+
+Tab:Button{
+	Name = "The Cabin",
+	Description = nil,
+	Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(1244, 63.5999947, 2306, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+    end
+}
+
+
+local Tab = GUI:Tab{Name = "Others",Icon = "rbxassetid://11934082122"}
+
+Tab:Button{
+	Name = "Server Finder",
+	Description = nil,
+	Callback = function()
+        loadstring(game:HttpGet("https://www.scriptblox.com/raw/Server-Browser_80", true))();
+    end
+}
+
+Tab:Button{
+	Name = "Dark Dex",
+	Description = nil,
+	Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Babyhamsta/RBLX_Scripts/main/Universal/BypassedDarkDexV3.lua", true))()
+    end
+}
+
+Tab:Button{
+	Name = "Remote spy",
+	Description = nil,
+	Callback = function()
+        loadstring(game:HttpGet(("https://pastebin.com/raw/AbERsNcn"), true))()
+    end
+}
+
+local Tab = GUI:Tab{Name = "Credits",Icon = "rbxassetid://7059346373"}
+Tab:Credit{
+    Name = "(Owner) Gunna Studios",
+    Description = "Helped with the script",
+    V3rm = "link/name",
+    Discord = "https://discord.gg/NZsyX79SST"
+}
+Tab:Credit{
+    Name = "(Manager) frencaliber",
+    Description = "Helped with the script",
+    V3rm = "link/name",
+    Discord = "https://discord.gg/wv23MwAaDA"
+}
+Tab:Credit{
+    Name = "(DEV) R1_Z1",
+    Description = "Helped with the script",
+    V3rm = "link/name",
+    Discord = "helo#1234"
+}
+Tab:Credit{
+    Name = "(DEV) .Kron",
+    Description = "Helped with the script",
+    V3rm = "link/name",
+    Discord = "helo#1234"
+}
+
+local Tab = GUI:Tab{Name = "Themes",Icon = "rbxassetid://11926521491"}
+Tab:ColorPicker{
+    Style = Mercury.ColorPickerStyles.Legacy,
+    Callback = function(color) end
+}
+
+while wait() do
+    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = getgenv().walk
+    game.Players.LocalPlayer.Character.Humanoid.JumpPower = getgenv().jump
+end
